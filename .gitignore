@@ -1,0 +1,4 @@
+output
+vmlinux.h
+execsnoop
+execsnoop.bpf.o
