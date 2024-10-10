@@ -32,7 +32,9 @@ type Event struct {
 
 func main() {
 	verbose := flag.Bool("v", false, "enable libbpf debug logging")
+	includeFailed := flag.Bool("x", false, "include failed exec()s")
 	flag.Parse()
+
 	if *verbose {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
@@ -56,6 +58,12 @@ func main() {
 		panic(err)
 	}
 	defer bpfModule.Close()
+
+	if *includeFailed {
+		if err := bpfModule.InitGlobalVariable("ignore_failed", false); err != nil {
+			panic(err)
+		}
+	}
 
 	if err := bpfModule.BPFLoadObject(); err != nil {
 		panic(err)
