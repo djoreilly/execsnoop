@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"unsafe"
 
 	bpf "github.com/aquasecurity/libbpfgo"
 )
@@ -24,7 +25,8 @@ type Event struct {
 	ArgsCount int32
 	ArgsSize  uint32
 	Comm      [16]byte
-	// binary.Read() can't parse Args for some reason
+	// The bpf module does not send beyond the last arg,
+	// so cannot use Args here with binary.Read().
 	// Args      [7680]byte
 }
 
@@ -100,8 +102,8 @@ func main() {
 				panic(err)
 			}
 
-			// binary.Read() gives EOF error parsing args, so read it manually from offset 40
-			args := bytes.TrimRight(rawData[40:], "\x00")
+			argsStart := unsafe.Sizeof(event)
+			args := bytes.TrimRight(rawData[argsStart:], "\x00")
 			args = bytes.ReplaceAll(args, []byte{0}, []byte(" "))
 
 			comm := bytes.TrimRight(event.Comm[:], "\x00")
