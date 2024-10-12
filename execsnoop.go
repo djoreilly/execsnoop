@@ -90,36 +90,29 @@ func main() {
 	}
 
 	eventsChan := make(chan []byte)
-	lostChan := make(chan uint64)
 
-	perfBuffer, err := bpfModule.InitPerfBuf("events", eventsChan, lostChan, 128)
+	rb, err := bpfModule.InitRingBuf("events", eventsChan)
 	if err != nil {
 		panic(err)
 	}
 
-	perfBuffer.Poll(300)
-	defer perfBuffer.Close()
+	rb.Poll(300)
 
-	for {
-		select {
-		case rawData := <-eventsChan:
-			var event Event
+	for rawData := range eventsChan {
+		var event Event
 
-			err := binary.Read(bytes.NewBuffer(rawData), binary.NativeEndian, &event)
-			if err != nil {
-				panic(err)
-			}
-
-			argsStart := unsafe.Sizeof(event)
-			args := bytes.TrimRight(rawData[argsStart:], "\x00")
-			args = bytes.ReplaceAll(args, []byte{0}, []byte(" "))
-
-			comm := bytes.TrimRight(event.Comm[:], "\x00")
-			fmt.Printf("PID: %d, PPID: %d, UID: %d, Ret: %d, Comm: %s, Args: %s\n",
-				event.PID, event.PPID, event.UID, event.Retval, comm, args)
-
-		case n := <-lostChan:
-			slog.Warn("events", "lost", n)
+		err := binary.Read(bytes.NewBuffer(rawData), binary.NativeEndian, &event)
+		if err != nil {
+			panic(err)
 		}
+
+		argsStart := unsafe.Sizeof(event)
+		args := bytes.TrimRight(rawData[argsStart:], "\x00")
+		args = bytes.ReplaceAll(args, []byte{0}, []byte(" "))
+
+		comm := bytes.TrimRight(event.Comm[:], "\x00")
+		fmt.Printf("PID: %d, PPID: %d, UID: %d, Ret: %d, Comm: %s, Args: %s\n",
+			event.PID, event.PPID, event.UID, event.Retval, comm, args)
+
 	}
 }

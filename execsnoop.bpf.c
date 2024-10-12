@@ -28,9 +28,8 @@ struct {
 } execs SEC(".maps");
 
 struct {
-	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-	__uint(key_size, sizeof(u32));
-	__uint(value_size, sizeof(u32));
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 256 * 1024);
 } events SEC(".maps");
 
 static __always_inline bool valid_uid(uid_t uid) {
@@ -141,7 +140,7 @@ int tracepoint__syscalls__sys_exit_execve(struct syscall_trace_exit* ctx)
 	bpf_get_current_comm(&event->comm, sizeof(event->comm));
 	size_t len = EVENT_SIZE(event);
 	if (len <= sizeof(*event))
-		bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, len);
+		bpf_ringbuf_output(&events, event, len, 0);
 cleanup:
 	bpf_map_delete_elem(&execs, &pid);
 	return 0;
